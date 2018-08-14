@@ -178,44 +178,10 @@ module.exports = Class.extend({
       return Q.all(_.map(dists, this._updateDistributionAsNecessary.bind(this, fns)));
    },
 
-   _waitForDistributionDeployed: function(distPhysicalID, distLogicalName) {
-      var self = this,
-          cloudfront = new this._provider.sdk.CloudFront(this._provider.getCredentials()),
-          firstDot = true,
-          running = true;
-
-      function dotPrinter() {
-         if (running) {
-            if (firstDot) {
-               self._serverless.cli.log('Waiting for CloudFront distribution "' + distLogicalName + '" to be deployed');
-               self._serverless.cli.log('This can take awhile.');
-               firstDot = false;
-            }
-            self._serverless.cli.printDot();
-            setTimeout(dotPrinter, 2000);
-         }
-      }
-
-      setTimeout(dotPrinter, 1000);
-
-      return Q.ninvoke(cloudfront, 'waitFor', 'distributionDeployed', { Id: distPhysicalID })
-         .then(function(resp) {
-            running = false;
-            if (!firstDot) {
-               // we have printed a dot, so clear the line
-               this._serverless.cli.consoleLog('');
-            }
-            this._serverless.cli.log('Distribution "' + distLogicalName + '" is now in "' + resp.Distribution.Status + '" state');
-         }.bind(this));
-   },
-
    _updateDistributionAsNecessary: function(fns, distID, distName) {
       var self = this;
 
-      return this._waitForDistributionDeployed(distID, distName)
-         .then(function() {
-            return self._provider.request('CloudFront', 'getDistribution', { Id: distID });
-         })
+      return self._provider.request('CloudFront', 'getDistribution', { Id: distID })
          .then(function(resp) {
             var config = resp.Distribution.DistributionConfig,
                 changed = self._modifyDistributionConfigIfNeeded(config, fns[distName]),
@@ -224,9 +190,6 @@ module.exports = Class.extend({
             if (changed) {
                self._serverless.cli.log('Updating distribution "' + distName + '" because we updated Lambda@Edge associations on it');
                return self._provider.request('CloudFront', 'updateDistribution', updateParams)
-                  .then(function() {
-                     return self._waitForDistributionDeployed(distID, distName);
-                  })
                   .then(function() {
                      self._serverless.cli.log('Done updating distribution "' + distName + '"');
                   });
@@ -257,7 +220,7 @@ module.exports = Class.extend({
          var existing = _.findWhere(beh.LambdaFunctionAssociations.Items, { EventType: fn.eventType });
 
          if (!existing) {
-            this._serverless.cli.log('Adding new Lamba@Edge association for ' + fn.eventType + ': ' + fn.fnARN);
+            this._serverless.cli.log('Adding new Lambda@Edge association for ' + fn.eventType + ': ' + fn.fnARN);
             beh.LambdaFunctionAssociations.Items.push({
                EventType: fn.eventType,
                LambdaFunctionARN: fn.fnARN,
