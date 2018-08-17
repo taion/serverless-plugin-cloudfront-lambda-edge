@@ -60,31 +60,31 @@ describe('serverless-plugin-cloudfront-lambda-edge', function() {
    });
 
 
-   describe('_modifyLambdaFunctions()', function() {
+   describe('_calculatePendingAssociations()', function() {
       it('does nothing if lambdaAtEdge doesnt exist', function() {
          functions = {
             someFn: {},
          };
-         plugin._modifyLambdaFunctions(functions, template);
+         plugin._calculatePendingAssociations(functions, template);
          expect(plugin._pendingAssociations).to.eql([]);
       });
 
       it('requires a valid event type', function() {
          functions.someFn.lambdaAtEdge.eventType = 'wrong-event';
-         expect(plugin._modifyLambdaFunctions).withArgs(functions, template).to
+         expect(plugin._calculatePendingAssociations).withArgs(functions, template).to
             .throwException(/"wrong-event" is not a valid event type, must be one of/);
       });
 
       it('requires a valid distribution', function() {
          functions.someFn.lambdaAtEdge.distributionID = null;
          functions.someFn.lambdaAtEdge.distribution = 'not-existing';
-         expect(plugin._modifyLambdaFunctions).withArgs(functions, template).to
+         expect(plugin._calculatePendingAssociations).withArgs(functions, template).to
             .throwException(/Could not find resource with logical name "not-existing" or there is no distributionID set/);
       });
 
       it('requires a distribution even with distributionID', function() {
          functions.someFn.lambdaAtEdge.distribution = null;
-         expect(plugin._modifyLambdaFunctions.bind(plugin)).withArgs(functions, template).to
+         expect(plugin._calculatePendingAssociations.bind(plugin)).withArgs(functions, template).to
             .throwException(/Distribution ID "123ABC" requires a distribution to be set/);
       });
 
@@ -94,7 +94,7 @@ describe('serverless-plugin-cloudfront-lambda-edge', function() {
 
          template.Resources.SomeRes = { Type: 'wrongtype' };
 
-         expect(plugin._modifyLambdaFunctions).withArgs(functions, template).to
+         expect(plugin._calculatePendingAssociations).withArgs(functions, template).to
             .throwException(/Resource with logical name "SomeRes" is not type AWS::CloudFront::Distribution/);
       });
 
@@ -102,7 +102,7 @@ describe('serverless-plugin-cloudfront-lambda-edge', function() {
          functions.someFn.lambdaAtEdge.distributionID = null;
          template.Resources.WebDist = { Type: 'AWS::CloudFront::Distribution' };
 
-         plugin._modifyLambdaFunctions(functions, template);
+         plugin._calculatePendingAssociations(functions, template);
 
          expect(plugin._pendingAssociations[0]).to.eql({
             fnLogicalName: 'log_id_someFn',
@@ -118,7 +118,7 @@ describe('serverless-plugin-cloudfront-lambda-edge', function() {
 
       it('accepts a distribution Id in place of a Resource distribution', function() {
          functions.someFn.lambdaAtEdge.distribution = 'ExistingWebDist';
-         plugin._modifyLambdaFunctions(functions, template);
+         plugin._calculatePendingAssociations(functions, template);
 
          expect(plugin._pendingAssociations[0]).to.eql({
             fnLogicalName: 'log_id_someFn',
