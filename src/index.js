@@ -33,7 +33,11 @@ module.exports = Class.extend({
    },
 
    _onBeforeDeployFinalize: function() {
-      var cnt = this._pendingAssociations.length;
+      var template = this._serverless.service.provider.compiledCloudFormationTemplate,
+          pendingAssociations = this._getPendingAssociations(this._serverless.service.functions, template),
+          cnt = pendingAssociations.length;
+
+      this._pendingAssociations = pendingAssociations;
 
       if (cnt === 0) {
          return;
@@ -63,7 +67,6 @@ module.exports = Class.extend({
       var template = this._serverless.service.provider.compiledCloudFormationTemplate;
 
       this._modifyExecutionRole(template);
-      this._modifyLambdaFunctions(this._serverless.service.functions, template);
    },
 
    _modifyExecutionRole: function(template) {
@@ -109,10 +112,10 @@ module.exports = Class.extend({
       }
    },
 
-   _modifyLambdaFunctions: function(functions, template) {
+   _getPendingAssociations: function(functions, template) {
       var self = this;
 
-      this._pendingAssociations = _.chain(functions)
+      return _.chain(functions)
          .reduce(function(memo, fnDef, fnName) {
             var distName, evtType, dist, distId;
 
@@ -152,25 +155,6 @@ module.exports = Class.extend({
 
             return memo;
          }, [])
-         .each(function(fn) {
-            var fnProps = template.Resources[fn.fnLogicalName].Properties;
-
-            if (fnProps && fnProps.Environment && fnProps.Environment.Variables) {
-               self._serverless.cli.log(
-                  'Removing ' +
-                  _.size(fnProps.Environment.Variables) +
-                  ' environment variables from function "' +
-                  fn.fnLogicalName +
-                  '" because Lambda@Edge does not support environment variables'
-               );
-
-               delete fnProps.Environment.Variables;
-
-               if (_.isEmpty(fnProps.Environment)) {
-                  delete fnProps.Environment;
-               }
-            }
-         })
          .value();
    },
 
