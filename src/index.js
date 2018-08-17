@@ -33,11 +33,12 @@ module.exports = Class.extend({
    },
 
    _onBeforeDeployFinalize: function() {
-      var template = this._serverless.service.provider.compiledCloudFormationTemplate,
-          pendingAssociations = this._getPendingAssociations(this._serverless.service.functions, template),
-          cnt = pendingAssociations.length;
+      var template = this._serverless.service.provider.compiledCloudFormationTemplate;
 
-      this._pendingAssociations = pendingAssociations;
+      this._calculatePendingAssociations(this._serverless.service.functions, template);
+
+      // eslint-disable-next-line one-var, vars-on-top
+      var cnt = this._pendingAssociations.length;
 
       if (cnt === 0) {
          return;
@@ -112,10 +113,10 @@ module.exports = Class.extend({
       }
    },
 
-   _getPendingAssociations: function(functions, template) {
+   _calculatePendingAssociations: function(functions, template) {
       var self = this;
 
-      return _.chain(functions)
+      this._pendingAssociations = _.chain(functions)
          .reduce(function(memo, fnDef, fnName) {
             var distName, evtType, dist, distId;
 
